@@ -1,6 +1,6 @@
 import os
 import sys
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, String, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
@@ -22,7 +22,15 @@ class CatalogItem(Base):
     id = Column(Integer, primary_key=True)
     description = Column(String(80))
     catagory_id = Column(String(80), ForeignKey("catagory.id"), nullable=False)
+    added = Column(Date, nullable=False)
     catagory = relationship(Catagory)
+
+
+class User(Base):
+    __tablename__ = 'user'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(250), nullable=False)
 
 
 engine = create_engine('sqlite:///catalog.db')
