@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Flask, request, render_template, session, make_response, flash
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker
+from functools import wraps
 from libs.database_setup import Base, Catagory, CatalogItem, User
 
 
@@ -28,7 +29,8 @@ new_item = CatalogItem(
     name='test',
     description='I am awesome',
     catagory_id=1,
-    added=datetime.now()
+    added=datetime.now(),
+    user_id=1
 )
 db_session.add(new_catagory)
 db_session.add(new_item)
@@ -36,8 +38,10 @@ db_session.commit()
 
 
 def create_user(login_session):
-    newUser = User(name=login_session['username'], email=login_session[
-                   'email'], picture=login_session['picture'])
+    newUser = User(
+        name=login_session['username'],
+        email=login_session['email']
+    )
     db_session.add(newUser)
     db_session.commit()
     user = db_session.query(User).filter_by(email=login_session['email']).one()
@@ -48,6 +52,14 @@ def get_user_id(email):
     try:
         user = db_session.query(User).filter_by(email=email).one()
         return user.id
+    except:
+        return None
+
+
+def get_user_id_that_created_item(name):
+    try:
+        item = db_session.query(CatalogItem).filter_by(name=name).one()
+        return item.user_id
     except:
         return None
 
@@ -94,14 +106,6 @@ def fb_login():
     # The token must be stored in the login_session in order to properly logout
     session['access_token'] = token
 
-    # Get user picture
-    url = 'https://graph.facebook.com/v2.8/me/picture?access_token=%s&redirect=0&height=200&width=200' % token
-    h = httplib2.Http()
-    result = h.request(url, 'GET')[1]
-    data = json.loads(result)
-
-    session['picture'] = data["data"]["url"]
-
     # see if user exists
     user_id = get_user_id(session['email'])
     if not user_id:
@@ -125,7 +129,19 @@ def fb_logout():
     url = 'https://graph.facebook.com/%s/permissions?access_token=%s' % (facebook_id,access_token)
     h = httplib2.Http()
     h.request(url, 'DELETE')
-    return "you have been logged out"
+    return "You have been logged out"
+
+
+def is_logged(endpoint_func):
+    @wraps(endpoint_func)
+    def check_is_logged(*args, **kwargs):
+        if 'username' not in session or 'email' not in session:
+            return "You need to log in first"
+        if 'item' in kwargs:
+            if get_user_id(session["email"] != get_user_id_that_created_item(kwargs['item'])):
+                return "You are not the owner of the item"
+        return endpoint_func(*args, **kwargs)
+    return check_is_logged
 
 
 @app.route('/')
@@ -142,13 +158,15 @@ def get_item(item_group, item):
 
 
 @app.route('/catalog/<item>/edit')
-def edit_item(item_group, item):
+@is_logged
+def edit_item(item):
     # this show a form to edit an item
     return 'ITEM EDIT'
 
 
 @app.route('/catalog/<item>/delete')
-def delete_item(item_group, item):
+@is_logged
+def delete_item(item):
     # this show a form to edit an item
     return 'DELETE AN ITEM'
 

@@ -15,6 +15,14 @@ class Catagory(Base):
     id = Column(Integer, primary_key=True)
 
 
+class User(Base):
+    __tablename__ = 'user'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(250), nullable=False)
+    email = Column(String(250), nullable=False)
+
+
 class CatalogItem(Base):
     __tablename__ = 'catalog_item'
 
@@ -24,13 +32,8 @@ class CatalogItem(Base):
     catagory_id = Column(String(80), ForeignKey("catagory.id"), nullable=False)
     added = Column(Date, nullable=False)
     catagory = relationship(Catagory)
-
-
-class User(Base):
-    __tablename__ = 'user'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250), nullable=False)
+    user_id = Column(String(80), ForeignKey("user.id"), nullable=False)
+    user = relationship(User)
 
 
 engine = create_engine('sqlite:///catalog.db')
