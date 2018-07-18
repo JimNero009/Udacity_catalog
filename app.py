@@ -3,8 +3,8 @@ import string
 import random
 import httplib2
 from datetime import datetime
-from flask import Flask, request, render_template, session, make_response, flash
-from sqlalchemy import create_engine, MetaData
+from flask import Flask, request, render_template, session, make_response, flash, jsonify
+from sqlalchemy import create_engine, MetaData, asc
 from sqlalchemy.orm import sessionmaker
 from functools import wraps
 from libs.database_setup import Base, Catagory, CatalogItem, User
@@ -12,8 +12,8 @@ from libs.database_setup import Base, Catagory, CatalogItem, User
 
 app = Flask(__name__, template_folder='./static/templates')
 
-
-engine = create_engine('sqlite:///catalog.db')
+# TODO am I using this correctly?
+engine = create_engine('sqlite:///catalog.db?check_same_thread=False')
 Base.metadata.bind = engine
 
 
@@ -26,7 +26,7 @@ new_catagory = Catagory(
     id=1
 )
 new_item = CatalogItem(
-    name='test',
+    name='Item1',
     description='I am awesome',
     catagory_id=1,
     added=datetime.now(),
@@ -148,32 +148,59 @@ def is_logged(endpoint_func):
 def home():
     # this should show login/logout button
     # and list of catogories and latest added items
-    return 'HOME'
+    # and add item button if logged
+    catagories = db_session.query(Catagory).order_by(asc(Catagory.name))
+    items = db_session.query(CatalogItem).order_by(asc(CatalogItem.name))
+    return render_template(
+        'index.html',
+        catagories=catagories,
+        items=items
+    )
+
+
+@app.route('/<catagory>/items')
+def items_by_catagory(catagory):
+    catagories = db_session.query(Catagory).order_by(asc(Catagory.name))
+    items = db_session.query(CatalogItem).order_by(asc(CatalogItem.name)).filter(Catagory.name == catagory)
+    return render_template(
+        'catagory_list.html',
+        selected_catagory=catagory,
+        catagories=catagories,
+        items=items
+    )
 
 
 @app.route('/catalog/<item_group>/<item>')
 def get_item(item_group, item):
-    # this should show the item description
-    return 'ITEM DESCRIPTION'
+    selected_item = db_session.query(CatalogItem).filter(Catagory.name == item_group).filter(CatalogItem.name == item).one()
+    # this should also display options to edit/delete
+    return render_template(
+        'view_item.html',
+        item=selected_item
+    )
 
 
 @app.route('/catalog/<item>/edit')
 @is_logged
 def edit_item(item):
     # this show a form to edit an item
-    return 'ITEM EDIT'
+    return render_template(
+        'edit_item.html'
+    )
 
 
 @app.route('/catalog/<item>/delete')
 @is_logged
 def delete_item(item):
     # this show a form to edit an item
-    return 'DELETE AN ITEM'
+    return render_template(
+        'delete_item.html'
+    )
 
 
 @app.route('/catalog.json')
 def catalog_json():
-    return 'TODO'
+    return jsonify(dict(msg="TODO"))
 
 
 if __name__ == '__main__':

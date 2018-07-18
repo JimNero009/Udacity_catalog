@@ -36,7 +36,7 @@ class CatalogItem(Base):
     user = relationship(User)
 
 
-engine = create_engine('sqlite:///catalog.db')
+engine = create_engine('sqlite:///catalog.db?check_same_thread=False')
 
 
 Base.metadata.drop_all(engine)
