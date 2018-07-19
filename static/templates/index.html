@@ -1,18 +1,24 @@
 <html>
     <body>
+        <div>
+            <a href="{{url_for('show_login')}}">Log in</a>
+        </div>
     <div>
         <h1>Catagories</h1>
             <ul>
                 {% for catagory in catagories %}
-                <li> <strong> {{ catagory.name }} </strong> </li>
+                <li><strong><a href={{ url_for('items_by_catagory', catagory=catagory.name) }}> {{ catagory.name }} </a></strong></li>
                 {% endfor %}
             </ul>
+        </div>
+        <div>
+            <a href={{ url_for('add_item') }}>Add item</a>
         </div>
         <div>
             <h1>Items</h1>
                 <ul>
                     {% for item in items %}
-                    <li> <strong> {{ item.name }} </strong> </li>
+                    <li><strong><a href={{ url_for('view_item', item_group=item.catagory.name, item=item.name) }}>{{ item.name }}</a></strong> </li>
                     {% endfor %}
                 </ul>
         </div>

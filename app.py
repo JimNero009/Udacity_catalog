@@ -69,7 +69,6 @@ def show_login():
     state = ''.join(random.choice(string.ascii_uppercase + string.digits)
                     for x in range(32))
     session['state'] = state
-    # return "The current session state is %s" % login_session['state']
     return render_template('login.html', STATE=state)
 
 
@@ -171,7 +170,7 @@ def items_by_catagory(catagory):
 
 
 @app.route('/catalog/<item_group>/<item>')
-def get_item(item_group, item):
+def view_item(item_group, item):
     selected_item = db_session.query(CatalogItem).filter(Catagory.name == item_group).filter(CatalogItem.name == item).one()
     # this should also display options to edit/delete
     return render_template(
@@ -196,6 +195,11 @@ def delete_item(item):
     return render_template(
         'delete_item.html'
     )
+
+@app.route('/catalog/additem')
+@is_logged
+def add_item():
+    return "Add item"
 
 
 @app.route('/catalog.json')
