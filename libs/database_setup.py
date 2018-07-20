@@ -14,6 +14,16 @@ class Catagory(Base):
     name = Column(String(80), nullable=False)
     id = Column(Integer, primary_key=True)
 
+    @property
+    def serialize(self):
+        return dict(
+            name=self.name,
+            id=self.id
+        )
+
+    def __getitem__(self, item):
+        return getattr(self, item)
+
 
 class User(Base):
     __tablename__ = 'user'
@@ -34,6 +44,17 @@ class CatalogItem(Base):
     catagory = relationship(Catagory)
     user_id = Column(String(80), ForeignKey("user.id"), nullable=False)
     user = relationship(User)
+
+    @property
+    def serialize(self):
+        return dict(
+            name=self.name,
+            id=self.id,
+            description=self.description,
+            catagory_id=self.catagory_id,
+            added=self.added,
+            catagory=self.catagory.serialize,
+        )
 
 
 engine = create_engine('sqlite:///catalog.db?check_same_thread=False')

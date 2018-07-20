@@ -3,7 +3,7 @@ import string
 import random
 import httplib2
 from datetime import datetime
-from flask import Flask, request, render_template, session, make_response, flash, jsonify
+from flask import Flask, request, render_template, session, make_response, jsonify, url_for, redirect
 from sqlalchemy import create_engine, MetaData, asc
 from sqlalchemy.orm import sessionmaker
 from functools import wraps
@@ -22,8 +22,7 @@ db_session = DBSession()
 
 
 new_catagory = Catagory(
-    name='Socks',
-    id=1
+    name='Socks'
 )
 new_item = CatalogItem(
     name='Item1',
@@ -116,7 +115,6 @@ def fb_login():
     output += session['username']
     output += '!</h1>'
 
-    flash("Now logged in as %s" % session['username'])
     return output
 
 
@@ -159,6 +157,7 @@ def home():
 
 @app.route('/<catagory>/items')
 def items_by_catagory(catagory):
+    # this does not seem to work properly
     catagories = db_session.query(Catagory).order_by(asc(Catagory.name))
     items = db_session.query(CatalogItem).order_by(asc(CatalogItem.name)).filter(Catagory.name == catagory)
     return render_template(
@@ -196,15 +195,37 @@ def delete_item(item):
         'delete_item.html'
     )
 
-@app.route('/catalog/additem')
+@app.route('/catalog/additem/', methods=['GET', 'POST'])
 @is_logged
 def add_item():
-    return "Add item"
+    if request.method == 'POST':
+        catagory = db_session.query(Catagory).filter(Catagory.name == request.form['catagory']).first()
+        if not catagory:
+            catagory = Catagory(
+                name=request.form['catagory']
+            )
+            db_session.add(catagory)
+            db_session.commit()
+        new_item = CatalogItem(
+            name=request.form['name'],
+            description=request.form['description'],
+            catagory_id=catagory['id'],
+            added=datetime.now(),
+            user_id=session['user_id']
+        )
+        db_session.add(new_item)
+        db_session.commit()
+        return redirect(url_for('home'))
+    else:
+        return render_template(
+            'add_item.html'
+        )
 
 
 @app.route('/catalog.json')
 def catalog_json():
-    return jsonify(dict(msg="TODO"))
+    full_catalog = db_session.query(CatalogItem).all()
+    return jsonify(items=[i.serialize for i in full_catalog])
 
 
 if __name__ == '__main__':
