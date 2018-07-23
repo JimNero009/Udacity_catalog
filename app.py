@@ -4,7 +4,7 @@ import random
 import httplib2
 from datetime import datetime
 from flask import Flask, request, render_template, session, make_response, jsonify, url_for, redirect
-from sqlalchemy import create_engine, MetaData, asc
+from sqlalchemy import create_engine, MetaData, asc, update
 from sqlalchemy.orm import sessionmaker
 from functools import wraps
 from libs.database_setup import Base, Catagory, CatalogItem, User
@@ -178,21 +178,38 @@ def view_item(item_group, item):
     )
 
 
-@app.route('/catalog/<item>/edit')
+@app.route('/catalog/<item>/edit', methods=['GET', 'POST'])
 @is_logged
 def edit_item(item):
-    # this show a form to edit an item
-    return render_template(
-        'edit_item.html'
-    )
+    if request.method == 'POST':
+        catagory = db_session.query(Catagory).filter(Catagory.name == request.form['catagory']).first()
+        if not catagory:
+            catagory = Catagory(
+                name=request.form['catagory']
+            )
+            db_session.add(catagory)
+            db_session.commit()
+        item_to_update = db_session.query(CatalogItem).filter_by(id=request.form['id']).first()
+        item_to_update.name = request.form['name']
+        item_to_update.description = request.form['description']
+        item_to_update.catagory_id = catagory.id
+        db_session.commit()
+        return redirect(url_for('home'))
+    else:
+        selected_item = db_session.query(CatalogItem).filter(CatalogItem.name == item).one()
+        return render_template(
+            'edit_item.html',
+            item=selected_item
+        )
 
 
 @app.route('/catalog/<item>/delete')
 @is_logged
 def delete_item(item):
-    # this show a form to edit an item
+    selected_item = db_session.query(CatalogItem).filter(CatalogItem.name == item).one()
     return render_template(
-        'delete_item.html'
+        'delete_item.html',
+        item=selected_item
     )
 
 @app.route('/catalog/additem/', methods=['GET', 'POST'])
@@ -209,7 +226,7 @@ def add_item():
         new_item = CatalogItem(
             name=request.form['name'],
             description=request.form['description'],
-            catagory_id=catagory['id'],
+            catagory_id=catagory.id,
             added=datetime.now(),
             user_id=session['user_id']
         )
