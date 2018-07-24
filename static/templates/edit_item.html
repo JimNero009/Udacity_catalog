@@ -1,7 +1,8 @@
 <html>
     <body>
         <div>
-            <h1><a href={{ url_for('home')}}>Home</a></h1>
+            Catalog App
+            <a href={{ url_for('home')}}>Home</a>
         </div>
     <div>
         <h1>Edit Item</h1>
@@ -14,8 +15,7 @@
                 <label for="name">Catagory:</label>
                 <input type ="text" maxlength="100" name="catagory" value="{{ item.catagory.name }}">
                 <input type="hidden", name="id", value="{{ item.id }}">
-                <button type="submit" type="submit">
-                </div>
+                <button type="submit">Submit</button>
             </form>
         </div>
     </div>

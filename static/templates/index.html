@@ -1,7 +1,12 @@
 <html>
     <body>
         <div>
-            <a href="{{url_for('show_login')}}">Log in</a>
+            Catalog App
+            {% if logged %}
+            <a href="{{url_for('fb_logout')}}">Logout</a>
+            {% else %}
+            <a href="{{url_for('show_login')}}">Login</a>
+            {% endif %}
         </div>
     <div>
         <h1>Catagories</h1>
@@ -12,15 +17,17 @@
             </ul>
         </div>
         <div>
-            <a href={{ url_for('add_item') }}>Add item</a>
-        </div>
-        <div>
             <h1>Items</h1>
                 <ul>
                     {% for item in items %}
                     <li><strong><a href={{ url_for('view_item', item_group=item.catagory.name, item=item.name) }}>{{ item.name }}</a></strong> </li>
                     {% endfor %}
                 </ul>
+                <div>
+                    {% if logged %}
+                    <a href={{ url_for('add_item') }}>Add item</a>
+                    {% endif %}
+                </div>
         </div>
     </body>
 </html>

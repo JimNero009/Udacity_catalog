@@ -1,15 +1,18 @@
 <html>
     <body>
         <div>
-            <h1><a href={{ url_for('home')}}>Home</a></h1>
+            Catalog App
+            <a href={{ url_for('home')}}>Home</a>
         </div>
     <div>
         <h1>{{ item.name }}</h1>
         <p>{{ item.description }}</p>
     </div>
     <div>
+        {% if logged %}
         <a href={{ url_for('edit_item', item=item.name)}}>Edit</a>
         <a href={{ url_for('delete_item', item=item.name)}}>Delete</a>
+        {% endif %}
     </div>
     </body>
 </html>

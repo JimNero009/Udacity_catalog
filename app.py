@@ -12,7 +12,7 @@ from libs.database_setup import Base, Catagory, CatalogItem, User
 
 app = Flask(__name__, template_folder='./static/templates')
 
-# TODO am I using this correctly?
+
 engine = create_engine('sqlite:///catalog.db?check_same_thread=False')
 Base.metadata.bind = engine
 
@@ -36,14 +36,14 @@ db_session.add(new_item)
 db_session.commit()
 
 
-def create_user(login_session):
+def create_user(user_dict):
     newUser = User(
-        name=login_session['username'],
-        email=login_session['email']
+        name=user_dict['username'],
+        email=user_dict['email']
     )
     db_session.add(newUser)
     db_session.commit()
-    user = db_session.query(User).filter_by(email=login_session['email']).one()
+    user = db_session.query(User).filter_by(email=user_dict['email']).one()
     return user.id
 
 
@@ -65,8 +65,11 @@ def get_user_id_that_created_item(name):
 
 @app.route('/login')
 def show_login():
-    state = ''.join(random.choice(string.ascii_uppercase + string.digits)
-                    for x in range(32))
+    state = ''.join(
+        random.choice(
+            string.ascii_uppercase + string.digits
+        ) for x in range(32)
+    )
     session['state'] = state
     return render_template('login.html', STATE=state)
 
@@ -78,64 +81,57 @@ def fb_login():
         response.headers['Content-Type'] = 'application/json'
         return response
     access_token = request.data
+    user = dict()
 
-
-    app_id = json.loads(open('static/data/fb_client_secrets.json', 'r').read())[
-        'web']['app_id']
+    app_id = json.loads(
+        open('static/data/fb_client_secrets.json', 'r').read()
+    )['web']['app_id']
     app_secret = json.loads(
-        open('static/data/fb_client_secrets.json', 'r').read())['web']['app_secret']
-    url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s' % (
-        app_id, app_secret, access_token)
+        open('static/data/fb_client_secrets.json', 'r').read()
+    )['web']['app_secret']
+    url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id={}&client_secret={}&fb_exchange_token={}'.format(app_id, app_secret, access_token)
     h = httplib2.Http()
     result = h.request(url, 'GET')[1]
     token = result.split(',')[0].split(':')[1].replace('"', '')
 
-    url = 'https://graph.facebook.com/v2.8/me?access_token=%s&fields=name,id,email' % token
+    url = 'https://graph.facebook.com/v2.8/me?access_token={}&fields=name,id,email'.format(token)
     h = httplib2.Http()
     result = h.request(url, 'GET')[1]
-    # print "url sent for API access:%s"% url
-    # print "API JSON result: %s" % result
     data = json.loads(result)
-    session['provider'] = 'facebook'
-    session['username'] = data["name"]
-    session['email'] = data["email"]
-    session['facebook_id'] = data["id"]
-
-    # The token must be stored in the login_session in order to properly logout
-    session['access_token'] = token
+    user['provider'] = 'facebook'
+    user['username'] = data["name"]
+    user['email'] = data["email"]
+    user['facebook_id'] = data["id"]
+    user['access_token'] = token
 
     # see if user exists
-    user_id = get_user_id(session['email'])
+    user_id = get_user_id(user['email'])
     if not user_id:
-        user_id = create_user(session)
-    session['user_id'] = user_id
-
-    output = ''
-    output += '<h1>Welcome, '
-    output += session['username']
-    output += '!</h1>'
-
-    return output
+        user_id = create_user(user)
+    user['user_id'] = user_id
+    session['user'] = user
+    return '<h1>Welcome, {} !</h1>'.format(user['username'])
 
 
 @app.route('/fblogout')
 def fb_logout():
-    facebook_id = session['facebook_id']
-    # The access token must me included to successfully logout
-    access_token = session['access_token']
-    url = 'https://graph.facebook.com/%s/permissions?access_token=%s' % (facebook_id,access_token)
+    user = session.get('user', {})
+    facebook_id = user.get('facebook_id')
+    access_token = user.get('access_token')
+    url = 'https://graph.facebook.com/{}/permissions?access_token={}'.format(facebook_id, access_token)
     h = httplib2.Http()
     h.request(url, 'DELETE')
-    return "You have been logged out"
+    session.pop('user', None)
+    return home()
 
 
 def is_logged(endpoint_func):
     @wraps(endpoint_func)
     def check_is_logged(*args, **kwargs):
-        if 'username' not in session or 'email' not in session:
+        if 'user' not in session:
             return "You need to log in first"
         if 'item' in kwargs:
-            if get_user_id(session["email"] != get_user_id_that_created_item(kwargs['item'])):
+            if get_user_id(session['user']["email"] != get_user_id_that_created_item(kwargs['item'])):
                 return "You are not the owner of the item"
         return endpoint_func(*args, **kwargs)
     return check_is_logged
@@ -143,23 +139,21 @@ def is_logged(endpoint_func):
 
 @app.route('/')
 def home():
-    # this should show login/logout button
-    # and list of catogories and latest added items
-    # and add item button if logged
     catagories = db_session.query(Catagory).order_by(asc(Catagory.name))
     items = db_session.query(CatalogItem).order_by(asc(CatalogItem.name))
     return render_template(
         'index.html',
         catagories=catagories,
-        items=items
+        items=items,
+        logged='user' in session
     )
 
 
 @app.route('/<catagory>/items')
 def items_by_catagory(catagory):
-    # this does not seem to work properly
     catagories = db_session.query(Catagory).order_by(asc(Catagory.name))
-    items = db_session.query(CatalogItem).order_by(asc(CatalogItem.name)).filter(Catagory.name == catagory)
+    catagory_id = db_session.query(Catagory).filter(Catagory.name == catagory).one().id
+    items = db_session.query(CatalogItem).order_by(asc(CatalogItem.name)).filter(CatalogItem.catagory_id == catagory_id)
     return render_template(
         'catagory_list.html',
         selected_catagory=catagory,
@@ -171,10 +165,10 @@ def items_by_catagory(catagory):
 @app.route('/catalog/<item_group>/<item>')
 def view_item(item_group, item):
     selected_item = db_session.query(CatalogItem).filter(Catagory.name == item_group).filter(CatalogItem.name == item).one()
-    # this should also display options to edit/delete
     return render_template(
         'view_item.html',
-        item=selected_item
+        item=selected_item,
+        logged='user' in session
     )
 
 
@@ -203,14 +197,26 @@ def edit_item(item):
         )
 
 
-@app.route('/catalog/<item>/delete')
+@app.route('/catalog/<item>/delete', methods=['GET', 'POST'])
 @is_logged
 def delete_item(item):
-    selected_item = db_session.query(CatalogItem).filter(CatalogItem.name == item).one()
-    return render_template(
-        'delete_item.html',
-        item=selected_item
-    )
+    if request.method == 'POST':
+        # there is still a small bug here
+        catagory_id = db_session.query(CatalogItem).filter(CatalogItem.id == request.form['id']).one().catagory_id
+        db_session.query(CatalogItem).filter(CatalogItem.id == request.form['id']).delete()
+        db_session.commit()
+        try:
+            db_session.query(CatalogItem).filter(CatalogItem.id == catagory_id).first()
+        except:
+            db_session.query(Catagory).filter(Catagory.id == catagory_id).delete()
+            db_session.commit()
+        return redirect(url_for('home'))
+    else:
+        selected_item = db_session.query(CatalogItem).filter(CatalogItem.name == item).one()
+        return render_template(
+            'delete_item.html',
+            item=selected_item
+        )
 
 @app.route('/catalog/additem/', methods=['GET', 'POST'])
 @is_logged
@@ -228,7 +234,7 @@ def add_item():
             description=request.form['description'],
             catagory_id=catagory.id,
             added=datetime.now(),
-            user_id=session['user_id']
+            user_id=session['user']['user_id']
         )
         db_session.add(new_item)
         db_session.commit()
