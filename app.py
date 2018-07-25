@@ -232,7 +232,7 @@ def edit_item(item):
 @is_logged
 def delete_item(item):
     if request.method == 'POST':
-        # there is still a small bug here
+        # delete item and catagory if it is now empty
         catagory_id = (
             db_session.query(CatalogItem)
             .filter(CatalogItem.id == request.form['id'])
@@ -275,6 +275,7 @@ def delete_item(item):
 @is_logged
 def add_item():
     if request.method == 'POST':
+        # add item and create catagory if needed
         catagory = (
             db_session.query(Catagory)
             .filter(Catagory.name == request.form['catagory'])
@@ -304,6 +305,7 @@ def add_item():
 
 @app.route('/catalog.json')
 def catalog_json():
+    # dump the full catalog
     full_catalog = db_session.query(CatalogItem).all()
     return jsonify(items=[i.serialize for i in full_catalog])
 
