@@ -103,9 +103,9 @@ def fb_login():
     result = h.request(url, 'GET')[1]
     data = json.loads(result)
     user['provider'] = 'facebook'
-    user['username'] = data["name"]
-    user['email'] = data["email"]
-    user['facebook_id'] = data["id"]
+    user['username'] = data.get("name", "")
+    user['email'] = data.get("email", "")
+    user['facebook_id'] = data.get("id", "")
     user['access_token'] = token
 
     # see if user exists
@@ -156,6 +156,11 @@ def home():
 
 @app.route('/<catagory>/items')
 def items_by_catagory(catagory):
+    '''
+    Displays all items in a catagory
+    params:
+    @catagory: str - the catagory to list
+    '''
     catagories = db_session.query(Catagory).order_by(asc(Catagory.name))
     catagory_id = (
         db_session.query(Catagory)
@@ -178,6 +183,12 @@ def items_by_catagory(catagory):
 
 @app.route('/catalog/<item_group>/<item>')
 def view_item(item_group, item):
+    '''
+    Displays an item
+    params:
+    @item_group: str - the item catagory
+    @item: str - the name of the item
+    '''
     selected_item = (
         db_session.query(CatalogItem)
         .filter(Catagory.name == item_group)
@@ -194,6 +205,11 @@ def view_item(item_group, item):
 @app.route('/catalog/<item>/edit', methods=['GET', 'POST'])
 @is_logged
 def edit_item(item):
+    '''
+    Edit an item
+    params:
+    @item: str - the item to edit
+    '''
     if request.method == 'POST':
         catagory = (
             db_session.query(Catagory)
@@ -231,6 +247,11 @@ def edit_item(item):
 @app.route('/catalog/<item>/delete', methods=['GET', 'POST'])
 @is_logged
 def delete_item(item):
+    '''
+    Delete an item
+    params:
+    @item: str - the item to delete
+    '''
     if request.method == 'POST':
         # delete item and catagory if it is now empty
         catagory_id = (
@@ -274,6 +295,9 @@ def delete_item(item):
 @app.route('/catalog/additem/', methods=['GET', 'POST'])
 @is_logged
 def add_item():
+    '''
+    Add an item to the catalog
+    '''
     if request.method == 'POST':
         # add item and create catagory if needed
         catagory = (
@@ -303,11 +327,19 @@ def add_item():
         )
 
 
-@app.route('/catalog.json')
-def catalog_json():
-    # dump the full catalog
-    full_catalog = db_session.query(CatalogItem).all()
-    return jsonify(items=[i.serialize for i in full_catalog])
+@app.route('/<item>/catalog.json')
+def catalog_json(item):
+    '''
+    Get JSON rep of one item
+    params:
+    @item: str - the name of the item
+    '''
+    item = (
+        db_session.query(CatalogItem)
+        .filter(CatalogItem.name == item)
+        .one()
+    )
+    return jsonify(items=item.serialize)
 
 
 if __name__ == '__main__':
