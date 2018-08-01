@@ -2,6 +2,7 @@ import json
 import string
 import random
 import httplib2
+import requests
 from datetime import datetime
 from flask import (
     Flask, request, render_template,
@@ -78,35 +79,19 @@ def show_login():
     return render_template('login.html', STATE=state)
 
 
-@app.route('/fblogin', methods=['POST'])
-def fb_login():
+@app.route('/googlelogin', methods=['POST'])
+def google_login():
+    data = request.form
     if request.args.get('state') != session['state']:
         response = make_response(json.dumps('Invalid state parameter.'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
-    access_token = request.data
     user = dict()
-
-    app_id = json.loads(
-        open('static/data/fb_client_secrets.json', 'r').read()
-    )['web']['app_id']
-    app_secret = json.loads(
-        open('static/data/fb_client_secrets.json', 'r').read()
-    )['web']['app_secret']
-    url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id={}&client_secret={}&fb_exchange_token={}'.format(app_id, app_secret, access_token)  # noqa
-    h = httplib2.Http()
-    result = h.request(url, 'GET')[1]
-    token = result.split(',')[0].split(':')[1].replace('"', '')
-
-    url = 'https://graph.facebook.com/v2.8/me?access_token={}&fields=name,id,email'.format(token)  # noqa
-    h = httplib2.Http()
-    result = h.request(url, 'GET')[1]
-    data = json.loads(result)
-    user['provider'] = 'facebook'
-    user['username'] = data.get("name", "")
+    user['provider'] = 'google'
+    user['username'] = data.get("username", "")
     user['email'] = data.get("email", "")
-    user['facebook_id'] = data.get("id", "")
-    user['access_token'] = token
+    user['google_id'] = data.get("id", "")
+    user['access_token'] = data.get("access_token", "")
 
     # see if user exists
     user_id = get_user_id(user['email'])
@@ -117,16 +102,16 @@ def fb_login():
     return '<h1>Welcome, {} !</h1>'.format(user['username'])
 
 
-@app.route('/fblogout')
-def fb_logout():
+@app.route('/googlelogout')
+def google_logout():
     user = session.get('user', {})
-    facebook_id = user.get('facebook_id')
-    access_token = user.get('access_token')
-    url = 'https://graph.facebook.com/{}/permissions?access_token={}'.format(facebook_id, access_token)  # noqa
-    h = httplib2.Http()
-    h.request(url, 'DELETE')
+    requests.post(
+        'https://accounts.google.com/o/oauth2/revoke',
+        params={'token': user.get('access_token')},
+        headers={'content-type': 'application/x-www-form-urlencoded'}
+    )
     session.pop('user', None)
-    return home()
+    return redirect(url_for('home'))
 
 
 def is_logged(endpoint_func):
@@ -135,7 +120,8 @@ def is_logged(endpoint_func):
         if 'user' not in session:
             return "You need to log in first"
         user_id = get_user_id(session['user']["email"])
-        user_id_item = get_user_id_that_created_item(kwargs['item'])
+        if 'item' in kwargs:
+            user_id_item = get_user_id_that_created_item(kwargs['item'])
         if 'item' in kwargs and user_id != user_id_item:
             return "You are not the owner of the item"
         return endpoint_func(*args, **kwargs)
