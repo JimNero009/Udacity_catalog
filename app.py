@@ -36,8 +36,13 @@ new_item = CatalogItem(
     added=datetime.now(),
     user_id=1
 )
+new_user = User(
+    name="James Cockburn",
+    email="nero02509@gmail.com"
+)
 db_session.add(new_catagory)
 db_session.add(new_item)
+db_session.add(new_user)
 db_session.commit()
 
 
@@ -121,7 +126,7 @@ def is_logged(endpoint_func):
             return "You need to log in first"
         user_id = get_user_id(session['user']["email"])
         if 'item' in kwargs:
-            user_id_item = get_user_id_that_created_item(kwargs['item'])
+            user_id_item = int(get_user_id_that_created_item(kwargs['item']))
         if 'item' in kwargs and user_id != user_id_item:
             return "You are not the owner of the item"
         return endpoint_func(*args, **kwargs)
